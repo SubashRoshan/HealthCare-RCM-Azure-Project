@@ -22,7 +22,7 @@
 					"type": "LinkedServiceReference",
 					"parameters": {
 						"dbName": {
-							"value": "@pipeline().parameters.storedProcDB",
+							"value": "@pipeline().parameters.dbName",
 							"type": "Expression"
 						}
 					}
@@ -156,7 +156,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"dbName": {
-											"value": "@pipeline().parameters.storedProcDB",
+											"value": "@pipeline().parameters.dbName",
 											"type": "Expression"
 										},
 										"schemaName": {
@@ -176,7 +176,7 @@
 			}
 		],
 		"parameters": {
-			"storedProcDB": {
+			"dbName": {
 				"type": "string",
 				"defaultValue": "healthCare-sql-db"
 			}
