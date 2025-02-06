@@ -3,7 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Create Schema and Tables If Not Exists",
+				"name": "Create Tables If Not Exists",
 				"type": "SqlServerStoredProcedure",
 				"dependsOn": [],
 				"policy": {
@@ -22,18 +22,26 @@
 					"type": "LinkedServiceReference",
 					"parameters": {
 						"dbName": {
-							"value": "@pipeline().parameters.storedProcDB",
+							"value": "@pipeline().parameters.dbName",
+							"type": "Expression"
+						},
+						"schemaName": {
+							"value": "@pipeline().parameters.dummySchemaName",
+							"type": "Expression"
+						},
+						"tableName": {
+							"value": "@pipeline().parameters.dummyTableName",
 							"type": "Expression"
 						}
 					}
 				}
 			},
 			{
-				"name": "Lookup config",
+				"name": "configs file",
 				"type": "Lookup",
 				"dependsOn": [
 					{
-						"activity": "Create Schema and Tables If Not Exists",
+						"activity": "Create Tables If Not Exists",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -63,9 +71,18 @@
 						"referenceName": "ds_healthCare_adls_delimited",
 						"type": "DatasetReference",
 						"parameters": {
-							"containerName": "sqldbraw",
-							"filePath": "configs",
-							"fileName": "load_configs.csv"
+							"containerName": {
+								"value": "@pipeline().parameters.lookupContainerName",
+								"type": "Expression"
+							},
+							"filePath": {
+								"value": "@pipeline().parameters.lookupFilePath",
+								"type": "Expression"
+							},
+							"fileName": {
+								"value": "@pipeline().parameters.lookupFileName",
+								"type": "Expression"
+							}
 						}
 					},
 					"firstRowOnly": false
@@ -76,7 +93,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Lookup config",
+						"activity": "configs file",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -88,10 +105,10 @@
 						"value": "@activity('Lookup config').output.value",
 						"type": "Expression"
 					},
-					"batchCount": 5,
+					"isSequential": true,
 					"activities": [
 						{
-							"name": "Copy Data",
+							"name": "Adls to Sql db",
 							"type": "Copy",
 							"dependsOn": [],
 							"policy": {
@@ -116,12 +133,9 @@
 								},
 								"sink": {
 									"type": "AzureSqlSink",
-									"preCopyScript": {
-										"value": "TRUNCATE TABLE @item().tableName",
-										"type": "Expression"
-									},
 									"writeBehavior": "insert",
-									"sqlWriterUseTableLock": false
+									"sqlWriterUseTableLock": false,
+									"disableMetricsCollection": false
 								},
 								"enableStaging": false,
 								"translator": {
@@ -138,13 +152,16 @@
 									"referenceName": "ds_healthCare_adls_delimited",
 									"type": "DatasetReference",
 									"parameters": {
-										"containerName": "sqldbraw",
+										"containerName": {
+											"value": "@pipeline().parameters.lookupContainerName",
+											"type": "Expression"
+										},
 										"filePath": {
-											"value": "replace(@item().database, '_', '-')",
+											"value": "@toLower(replace(item().database, '_', '-'))",
 											"type": "Expression"
 										},
 										"fileName": {
-											"value": "split(@item().tableName, '.')[1]",
+											"value": "@concat(split(item().tableName, '.')[1], '.csv')",
 											"type": "Expression"
 										}
 									}
@@ -156,7 +173,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"dbName": {
-											"value": "@pipeline().parameters.storedProcDB",
+											"value": "@pipeline().parameters.dbName",
 											"type": "Expression"
 										},
 										"schemaName": {
@@ -176,9 +193,29 @@
 			}
 		],
 		"parameters": {
-			"storedProcDB": {
+			"dbName": {
 				"type": "string",
 				"defaultValue": "healthCare-sql-db"
+			},
+			"dummySchemaName": {
+				"type": "string",
+				"defaultValue": "healthCare-hospital-a"
+			},
+			"dummyTableName": {
+				"type": "string",
+				"defaultValue": "patients"
+			},
+			"lookupContainerName": {
+				"type": "string",
+				"defaultValue": "sqldbraw"
+			},
+			"lookupFilePath": {
+				"type": "string",
+				"defaultValue": "configs"
+			},
+			"lookupFileName": {
+				"type": "string",
+				"defaultValue": "load_configs.csv"
 			}
 		},
 		"annotations": []
