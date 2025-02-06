@@ -1,0 +1,55 @@
+{
+	"name": "ds_healthCare_adls_parquet",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_healthCare_adls",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"containerName": {
+					"value": "@dataset().containerName",
+					"type": "Expression"
+				},
+				"filePath": {
+					"value": "@dataset().filePath",
+					"type": "Expression"
+				},
+				"fileName": {
+					"value": "@dataset().fileName",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"containerName": {
+				"type": "string"
+			},
+			"filePath": {
+				"type": "string"
+			},
+			"fileName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": {
+					"value": "@dataset().fileName",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().filePath",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@dataset().containerName",
+					"type": "Expression"
+				}
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	}
+}

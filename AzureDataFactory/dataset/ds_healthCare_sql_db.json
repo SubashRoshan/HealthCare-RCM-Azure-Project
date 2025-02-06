@@ -1,0 +1,47 @@
+{
+	"name": "ds_healthCare_sql_db",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_healthCare_sql_db",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"dbName": {
+					"value": "@dataset().dbName",
+					"type": "Expression"
+				},
+				"schemaName": {
+					"value": "@dataset().schemaName",
+					"type": "Expression"
+				},
+				"tableName": {
+					"value": "@dataset().tableName",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"dbName": {
+				"type": "string"
+			},
+			"schemaName": {
+				"type": "string"
+			},
+			"tableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().schemaName",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().tableName",
+				"type": "Expression"
+			}
+		}
+	}
+}
