@@ -3,7 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Create Schema and Tables If Not Exists",
+				"name": "Create Tables If Not Exists",
 				"type": "SqlServerStoredProcedure",
 				"dependsOn": [],
 				"policy": {
@@ -37,11 +37,11 @@
 				}
 			},
 			{
-				"name": "Lookup config",
+				"name": "configs file",
 				"type": "Lookup",
 				"dependsOn": [
 					{
-						"activity": "Create Schema and Tables If Not Exists",
+						"activity": "Create Tables If Not Exists",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -93,7 +93,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Lookup config",
+						"activity": "configs file",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -108,7 +108,7 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "Copy Data",
+							"name": "Adls to Sql db",
 							"type": "Copy",
 							"dependsOn": [],
 							"policy": {
@@ -134,7 +134,8 @@
 								"sink": {
 									"type": "AzureSqlSink",
 									"writeBehavior": "insert",
-									"sqlWriterUseTableLock": false
+									"sqlWriterUseTableLock": false,
+									"disableMetricsCollection": false
 								},
 								"enableStaging": false,
 								"translator": {
@@ -156,11 +157,11 @@
 											"type": "Expression"
 										},
 										"filePath": {
-											"value": "toLower(replace(@item().database, '_', '-'))",
+											"value": "@toLower(replace(item().database, '_', '-'))",
 											"type": "Expression"
 										},
 										"fileName": {
-											"value": "split(@item().tableName, '.')[1]",
+											"value": "@concat(split(item().tableName, '.')[1], '.csv')",
 											"type": "Expression"
 										}
 									}
