@@ -5,7 +5,14 @@
 			{
 				"name": "Create Schema and Tables If Not Exists",
 				"type": "SqlServerStoredProcedure",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "Stored procedure1",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -24,7 +31,9 @@
 						"dbName": {
 							"value": "@pipeline().parameters.dbName",
 							"type": "Expression"
-						}
+						},
+						"schemaName": null,
+						"tableName": null
 					}
 				}
 			},
@@ -172,6 +181,26 @@
 							]
 						}
 					]
+				}
+			},
+			{
+				"name": "Stored procedure1",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[CreateSchemaAndTable]"
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_test_sql_db",
+					"type": "LinkedServiceReference"
 				}
 			}
 		],
