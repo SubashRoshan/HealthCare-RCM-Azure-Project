@@ -1,5 +1,5 @@
 {
-	"name": "pl_landing_bronze",
+	"name": "pl_sql_db_bronze",
 	"properties": {
 		"activities": [
 			{
@@ -64,7 +64,8 @@
 						"value": "@activity('Configs file').output.value",
 						"type": "Expression"
 					},
-					"isSequential": true,
+					"isSequential": false,
+					"batchCount": 4,
 					"activities": [
 						{
 							"name": "File Exists",
