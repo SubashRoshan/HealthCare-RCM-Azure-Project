@@ -1,0 +1,27 @@
+{
+	"name": "ls_healthCare_delta_lake",
+	"properties": {
+		"parameters": {
+			"schemaName": {
+				"type": "string"
+			},
+			"tableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureDatabricksDeltaLake",
+		"typeProperties": {
+			"domain": "https://adb-3564273626301826.6.azuredatabricks.net",
+			"clusterId": "0206-195714-n8epyf5g",
+			"accessToken": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "ls_healthCare_kv",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "adb-token"
+			}
+		}
+	}
+}
