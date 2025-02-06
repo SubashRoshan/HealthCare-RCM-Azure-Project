@@ -1,0 +1,9 @@
+{
+	"name": "healthCare-RCM-adf",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "2679cbe8-bc87-419d-ba6e-a6096299bff0",
+		"tenantId": "e8e74990-a781-4b65-9494-82c6a908d5eb"
+	}
+}
