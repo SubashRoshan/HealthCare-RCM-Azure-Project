@@ -1,0 +1,548 @@
+{
+	"name": "pl_landing_bronze",
+	"properties": {
+		"activities": [
+			{
+				"name": "Configs file",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "ds_healthCare_adls_delimited",
+						"type": "DatasetReference",
+						"parameters": {
+							"containerName": {
+								"value": "@pipeline().parameters.loopkupContainerName",
+								"type": "Expression"
+							},
+							"filePath": {
+								"value": "@pipeline().parameters.loopkupFilePath",
+								"type": "Expression"
+							},
+							"fileName": {
+								"value": "@pipeline().parameters.loopkupFileName",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Configs file",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Configs file').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "File Exists",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "ds_healthCare_adls_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"containerName": {
+											"value": "@variables('containerName')",
+											"type": "Expression"
+										},
+										"filePath": {
+											"value": "@item().targetpath",
+											"type": "Expression"
+										},
+										"fileName": {
+											"value": "@split(item().tablename, '.')[1]",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"exists"
+								],
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							}
+						},
+						{
+							"name": "Already Exists",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "File Exists",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@activity('File Exists').output.exists",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Archive File",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "ParquetSource",
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "ParquetReadSettings"
+												}
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_healthCare_adls_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"containerName": {
+														"value": "@variables('containerName')",
+														"type": "Expression"
+													},
+													"filePath": {
+														"value": "@item().targetpath",
+														"type": "Expression"
+													},
+													"fileName": {
+														"value": "@split(item().tablename, '.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_healthCare_adls_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"containerName": {
+														"value": "@variables('containerName')",
+														"type": "Expression"
+													},
+													"filePath": {
+														"value": "@concat(item().targetpath, '/archive/', formatDateTime(utcNow(), 'yyyy'), '/', formatDateTime(utcNow(), '%M'), '/', formatDateTime(utcNow(), '%d'))",
+														"type": "Expression"
+													},
+													"fileName": {
+														"value": "@split(item().tablename, '.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						},
+						{
+							"name": "Load Type",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Already Exists",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().loadtype, 'Full')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Fetch Logs",
+										"type": "Lookup",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureDatabricksDeltaLakeSource",
+												"query": {
+													"value": "@concat('select coalesce(cast(max(loaddate) as date),''','1900-01-01',''') as last_fetched_date from audit.load_logs where ','data_source = ''',item().datasource, ''' and tablename = ''', item().tablename, '''')",
+													"type": "Expression"
+												}
+											},
+											"dataset": {
+												"referenceName": "ds_healthCare_delta_lake",
+												"type": "DatasetReference",
+												"parameters": {
+													"schemaName": "audit",
+													"tableName": "load_logs"
+												}
+											},
+											"firstRowOnly": true
+										}
+									},
+									{
+										"name": "Incrementa Load CP",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "Fetch Logs",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderQuery": {
+													"value": "@concat('select *, ''', item().datasource, ''' as datasource from ', item().tablename, ' where ', item().watermark, ' >= ''', activity('Fetch Logs').output.firstRow.last_fetched_date, '''')",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_healthCare_sql_db",
+												"type": "DatasetReference",
+												"parameters": {
+													"dbName": {
+														"value": "@pipeline().parameters.dbName",
+														"type": "Expression"
+													},
+													"schemaName": {
+														"value": "@item().database",
+														"type": "Expression"
+													},
+													"tableName": {
+														"value": "@split(item().tablename, '.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_healthCare_adls_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"containerName": {
+														"value": "@variables('containerName')",
+														"type": "Expression"
+													},
+													"filePath": {
+														"value": "@item().targetpath",
+														"type": "Expression"
+													},
+													"fileName": {
+														"value": "@split(item().tablename, '.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "Audit Logs",
+										"type": "Lookup",
+										"dependsOn": [
+											{
+												"activity": "Incrementa Load CP",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureDatabricksDeltaLakeSource",
+												"query": {
+													"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', item().datasource, ''', ''', item().tablename, ''', ''', activity('Incrementa Load CP').output.rowscopied, ''', ''', item().watermark, ''', ''', utcNow(), ''')')",
+													"type": "Expression"
+												}
+											},
+											"dataset": {
+												"referenceName": "ds_healthCare_delta_lake",
+												"type": "DatasetReference",
+												"parameters": {
+													"schemaName": "audit",
+													"tableName": "load_logs"
+												}
+											},
+											"firstRowOnly": false
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "Full Load CP",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderQuery": {
+													"value": "@concat('select *, ''', item().datasource, ''' as datasource from ', item().tablename)",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_healthCare_sql_db",
+												"type": "DatasetReference",
+												"parameters": {
+													"dbName": {
+														"value": "@pipeline().parameters.dbName",
+														"type": "Expression"
+													},
+													"schemaName": {
+														"value": "@split(item().tablename, '.')[0]",
+														"type": "Expression"
+													},
+													"tableName": {
+														"value": "@split(item().tablename, '.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_healthCare_adls_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"containerName": {
+														"value": "@variables('containerName')",
+														"type": "Expression"
+													},
+													"filePath": {
+														"value": "@item().database",
+														"type": "Expression"
+													},
+													"fileName": {
+														"value": "@split(item().tablename, '.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "Audit Log",
+										"type": "Lookup",
+										"dependsOn": [
+											{
+												"activity": "Full Load CP",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureDatabricksDeltaLakeSource",
+												"query": {
+													"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', item().datasource, ''', ''', item().tablename, ''', ''', activity('Full Load CP').output.rowscopied, ''', ''', item().watermark, ''', ''', utcNow(), ''')')",
+													"type": "Expression"
+												}
+											},
+											"dataset": {
+												"referenceName": "ds_healthCare_delta_lake",
+												"type": "DatasetReference",
+												"parameters": {
+													"schemaName": "audit",
+													"tableName": "load_logs"
+												}
+											},
+											"firstRowOnly": false
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"loopkupContainerName": {
+				"type": "string",
+				"defaultValue": "sqldbraw"
+			},
+			"loopkupFileName": {
+				"type": "string",
+				"defaultValue": "load_configs.csv"
+			},
+			"loopkupFilePath": {
+				"type": "string",
+				"defaultValue": "configs"
+			},
+			"dbName": {
+				"type": "string",
+				"defaultValue": "healthCare-sql-db"
+			}
+		},
+		"variables": {
+			"containerName": {
+				"type": "String",
+				"defaultValue": "bronze"
+			}
+		},
+		"annotations": []
+	}
+}

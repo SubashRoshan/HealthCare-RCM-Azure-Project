@@ -1,0 +1,30 @@
+{
+	"name": "ds_healthCare_delta_lake",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_healthCare_delta_lake",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"schemaName": {
+					"value": "@dataset().schemaName",
+					"type": "Expression"
+				},
+				"tableName": {
+					"value": "@dataset().tableName",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"schemaName": {
+				"type": "string"
+			},
+			"tableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureDatabricksDeltaLakeDataset",
+		"schema": []
+	}
+}
