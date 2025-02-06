@@ -1,0 +1,186 @@
+{
+	"name": "pl_load_sql_db",
+	"properties": {
+		"activities": [
+			{
+				"name": "Create Schema and Tables If Not Exists",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[CreateSchemaAndTable]"
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_healthCare_sql_db",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"dbName": {
+							"value": "@pipeline().parameters.storedProcDB",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Lookup config",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Create Schema and Tables If Not Exists",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "ds_healthCare_adls_delimited",
+						"type": "DatasetReference",
+						"parameters": {
+							"containerName": "sqldbraw",
+							"filePath": "configs",
+							"fileName": "load_configs.csv"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Lookup config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Lookup config').output.value",
+						"type": "Expression"
+					},
+					"batchCount": 5,
+					"activities": [
+						{
+							"name": "Copy Data",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"preCopyScript": {
+										"value": "TRUNCATE TABLE @item().tableName",
+										"type": "Expression"
+									},
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "ds_healthCare_adls_delimited",
+									"type": "DatasetReference",
+									"parameters": {
+										"containerName": "sqldbraw",
+										"filePath": {
+											"value": "replace(@item().database, '_', '-')",
+											"type": "Expression"
+										},
+										"fileName": {
+											"value": "split(@item().tableName, '.')[1]",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "ds_healthCare_sql_db",
+									"type": "DatasetReference",
+									"parameters": {
+										"dbName": {
+											"value": "@pipeline().parameters.storedProcDB",
+											"type": "Expression"
+										},
+										"schemaName": {
+											"value": "@item().database",
+											"type": "Expression"
+										},
+										"tableName": {
+											"value": "@split(item().tableName, '.')[1]",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"storedProcDB": {
+				"type": "string",
+				"defaultValue": "healthCare-sql-db"
+			}
+		},
+		"annotations": []
+	}
+}
