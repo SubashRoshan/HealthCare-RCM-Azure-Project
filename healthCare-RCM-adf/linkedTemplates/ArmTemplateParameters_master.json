@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "healthCare-RCM-adf"
+		},
+		"ls_healthCare_adls_properties_typeProperties_url": {
+			"value": "https://healthcarearsa.dfs.core.windows.net/"
+		},
+		"ls_healthCare_kv_properties_typeProperties_baseUrl": {
+			"value": "https://healthCare-RCM-AR-kv.vault.azure.net/"
+		},
+		"ls_healthCare_sql_db_properties_typeProperties_server": {
+			"value": "healthcare-sql-server.database.windows.net"
+		},
+		"ls_healthCare_sql_db_properties_typeProperties_database": {
+			"value": "healthCare-sql-db"
+		},
+		"ls_healthCare_sql_db_properties_typeProperties_userName": {
+			"value": "healthcare"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}
