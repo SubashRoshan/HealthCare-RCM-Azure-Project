@@ -16,7 +16,7 @@
 		"type": "AzureSqlDatabase",
 		"typeProperties": {
 			"server": "healthcare-sql-server.database.windows.net",
-			"database": "healthCare-sql-db",
+			"database": "@{linkedService().dbName}",
 			"encrypt": "mandatory",
 			"trustServerCertificate": false,
 			"authenticationType": "SQL",
