@@ -222,14 +222,14 @@
 								{
 									"activity": "Already Exists",
 									"dependencyConditions": [
-										"Succeeded"
+										"Completed"
 									]
 								}
 							],
 							"userProperties": [],
 							"typeProperties": {
 								"expression": {
-									"value": "@equals(item().is_active,1)",
+									"value": "@equals(item().is_active,'Y')",
 									"type": "Expression"
 								},
 								"ifTrueActivities": [
