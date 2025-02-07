@@ -189,7 +189,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableName)",
+										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableNameWithSchema)",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -244,7 +244,7 @@
 											"type": "Expression"
 										},
 										"filePath": {
-											"value": "@pipeline().parameters.filePath",
+											"value": "@pipeline().parameters.targetpath",
 											"type": "Expression"
 										},
 										"fileName": {
@@ -278,7 +278,7 @@
 								"source": {
 									"type": "AzureDatabricksDeltaLakeSource",
 									"query": {
-										"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tablename, ''', ''', activity('Full Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
+										"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tableNameWithSchema, ''', ''', activity('Full Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
 										"type": "Expression"
 									}
 								},
@@ -311,9 +311,6 @@
 				"type": "string"
 			},
 			"datasource": {
-				"type": "string"
-			},
-			"filePath": {
 				"type": "string"
 			},
 			"containerName": {
