@@ -1922,7 +1922,14 @@
 					{
 						"name": "Landing To Bronze",
 						"type": "ExecutePipeline",
-						"dependsOn": [],
+						"dependsOn": [
+							{
+								"activity": "Audit Log Init",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
 						"policy": {
 							"secureInput": false
 						},
@@ -1959,6 +1966,26 @@
 							"waitOnCompletion": true,
 							"parameters": {}
 						}
+					},
+					{
+						"name": "Audit Log Init",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 2,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/e.subashroshan.trencytech@outlook.com/HealthCare-RCM-Azure-Project/AzureDatabricks/Environment Set Up/audit_ddl.py"
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
 					}
 				],
 				"policy": {
@@ -1968,7 +1995,8 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/pipelines/pl_landing_bronze')]",
-				"[concat(variables('factoryId'), '/pipelines/pl_silver_gold')]"
+				"[concat(variables('factoryId'), '/pipelines/pl_silver_gold')]",
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_adb')]"
 			]
 		},
 		{
