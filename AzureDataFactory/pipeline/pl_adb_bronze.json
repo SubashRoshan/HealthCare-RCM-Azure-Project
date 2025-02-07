@@ -1,0 +1,55 @@
+{
+	"name": "pl_adb_bronze",
+	"properties": {
+		"activities": [
+			{
+				"name": "ICD bronze",
+				"type": "DatabricksNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/Users/e.subashroshan.trencytech@outlook.com/HealthCare-RCM-Azure-Project/AzureDatabricks/API Extracts/ICD Code API Extract"
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_healthCare_adb",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "NPI_bronze",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "ICD bronze",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/Users/e.subashroshan.trencytech@outlook.com/HealthCare-RCM-Azure-Project/AzureDatabricks/API Extracts/NPI API Extract"
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_healthCare_adb",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"annotations": []
+	}
+}
