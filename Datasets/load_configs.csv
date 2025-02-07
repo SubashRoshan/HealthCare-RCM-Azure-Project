@@ -1,0 +1,11 @@
+database,datasource,tablename,loadtype,watermark,is_active,targetpath
+healthCare_hospital_a,hospital-a,healthCare_hospital_a.encounters,Incremental,ModifiedDate,0,healthCare_hospital_a
+healthCare_hospital_a,hospital-a,healthCare_hospital_a.patients,Incremental,ModifiedDate,0,healthCare_hospital_a
+healthCare_hospital_a,hospital-a,healthCare_hospital_a.transactions,Incremental,ModifiedDate,0,healthCare_hospital_a
+healthCare_hospital_a,hospital-a,healthCare_hospital_a.providers,Full,,0,healthCare_hospital_a
+healthCare_hospital_a,hospital-a,healthCare_hospital_a.departments,Full,,0,healthCare_hospital_a
+healthCare_hospital_b,hospital-b,healthCare_hospital_b.encounters,Incremental,ModifiedDate,0,healthCare_hospital_b
+healthCare_hospital_b,hospital-b,healthCare_hospital_b.patients,Incremental,Updated_Date,1,healthCare_hospital_b
+healthCare_hospital_b,hospital-b,healthCare_hospital_b.transactions,Incremental,ModifiedDate,0,healthCare_hospital_b
+healthCare_hospital_b,hospital-b,healthCare_hospital_b.providers,Full,,0,healthCare_hospital_b
+healthCare_hospital_b,hospital-b,healthCare_hospital_b.departments,Full,,0,healthCare_hospital_b
