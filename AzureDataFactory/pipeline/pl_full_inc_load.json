@@ -67,7 +67,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tablename, ' where ', pipeline().parameters.watermark, ' >= ''', activity('Fetch Logs').output.firstRow.last_fetched_date, '''')",
+										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableNameWithSchema, ' where ', pipeline().parameters.watermark, ' >= ''', activity('Fetch Logs').output.firstRow.last_fetched_date, '''')",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",

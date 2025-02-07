@@ -1,0 +1,77 @@
+{
+	"name": "pl_test",
+	"properties": {
+		"activities": [
+			{
+				"name": "Incrementa Load CP",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_healthCare_sql_db",
+						"type": "DatasetReference",
+						"parameters": {
+							"dbName": "healthCare-sql-db",
+							"schemaName": "healthCare_hospital_a",
+							"tableName": "departments"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_healthCare_adls_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"containerName": {
+								"value": "@pipeline().parameters.containerName",
+								"type": "Expression"
+							},
+							"filePath": {
+								"value": "@pipeline().parameters.targetpath",
+								"type": "Expression"
+							},
+							"fileName": {
+								"value": "@pipeline().parameters.tableName",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"annotations": []
+	}
+}
