@@ -103,6 +103,7 @@
 								],
 								"storeSettings": {
 									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
 									"enablePartitionDiscovery": false
 								},
 								"formatSettings": {
@@ -218,14 +219,9 @@
 						{
 							"name": "Load Type",
 							"type": "IfCondition",
-							"dependsOn": [
-								{
-									"activity": "Already Exists",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
 							"userProperties": [],
 							"typeProperties": {
 								"expression": {
@@ -514,6 +510,67 @@
 										}
 									}
 								]
+							}
+						},
+						{
+							"name": "Execute Load Pipeline",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Already Exists",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "pl_full_inc_load",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"dbName": {
+										"value": "@pipeline().parameters.dbName",
+										"type": "Expression"
+									},
+									"loadtype": {
+										"value": "@item().loadtype",
+										"type": "Expression"
+									},
+									"schemaName": {
+										"value": "@split(item().tablename, '.')[0]",
+										"type": "Expression"
+									},
+									"tableName": {
+										"value": "@split(item().tablename, '.')[1]",
+										"type": "Expression"
+									},
+									"datasource": {
+										"value": "@item().datasource",
+										"type": "Expression"
+									},
+									"filePath": {
+										"value": "@variables('containerName')",
+										"type": "Expression"
+									},
+									"containerName": {
+										"value": "@item().database",
+										"type": "Expression"
+									},
+									"tablename": {
+										"value": "@item().tablename",
+										"type": "Expression"
+									},
+									"watermark": {
+										"value": "@item().watermark",
+										"type": "Expression"
+									}
+								}
 							}
 						}
 					]
