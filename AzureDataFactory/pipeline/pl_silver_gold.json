@@ -76,7 +76,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"notebookPath": {
-						"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_cpt_codes.py')",
+						"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_cpt_code.py')",
 						"type": "Expression"
 					}
 				},
