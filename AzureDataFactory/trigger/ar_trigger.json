@@ -1,0 +1,25 @@
+{
+	"name": "ar_trigger",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "pl_healthcare_ar",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Day",
+				"interval": 1,
+				"startTime": "2025-02-07T18:50:00",
+				"endTime": "2025-02-08T13:02:00",
+				"timeZone": "India Standard Time"
+			}
+		}
+	}
+}

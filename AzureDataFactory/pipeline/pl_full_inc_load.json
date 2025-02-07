@@ -29,7 +29,7 @@
 								"source": {
 									"type": "AzureDatabricksDeltaLakeSource",
 									"query": {
-										"value": "@concat('select coalesce(cast(max(loaddate) as date),''','1900-01-01',''') as last_fetched_date from audit.load_logs where ','data_source = ''',pipeline().parameters.datasource, ''' and tablename = ''', pipeline().parameters.tablename, '''')",
+										"value": "@concat('select coalesce(cast(max(loaddate) as date),''','1900-01-01',''') as last_fetched_date from audit.load_logs where ','data_source = ''',pipeline().parameters.datasource, ''' and tablename = ''', pipeline().parameters.tableNameWithSchema, '''')",
 										"type": "Expression"
 									}
 								},
@@ -67,7 +67,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tablename, ' where ', pipeline().parameters.watermark, ' >= ''', activity('Fetch Logs').output.firstRow.last_fetched_date, '''')",
+										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableNameWithSchema, ' where ', pipeline().parameters.watermark, ' >= ''', activity('Fetch Logs').output.firstRow.last_fetched_date, '''')",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -156,7 +156,7 @@
 								"source": {
 									"type": "AzureDatabricksDeltaLakeSource",
 									"query": {
-										"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tablename, ''', ''', activity('Incrementa Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
+										"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tableNameWithSchema, ''', ''', activity('Incrementa Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
 										"type": "Expression"
 									}
 								},
@@ -189,7 +189,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableName)",
+										"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableNameWithSchema)",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -244,7 +244,7 @@
 											"type": "Expression"
 										},
 										"filePath": {
-											"value": "@pipeline().parameters.filePath",
+											"value": "@pipeline().parameters.targetpath",
 											"type": "Expression"
 										},
 										"fileName": {
@@ -278,7 +278,7 @@
 								"source": {
 									"type": "AzureDatabricksDeltaLakeSource",
 									"query": {
-										"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tablename, ''', ''', activity('Full Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
+										"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tableNameWithSchema, ''', ''', activity('Full Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
 										"type": "Expression"
 									}
 								},
@@ -311,9 +311,6 @@
 				"type": "string"
 			},
 			"datasource": {
-				"type": "string"
-			},
-			"filePath": {
 				"type": "string"
 			},
 			"containerName": {

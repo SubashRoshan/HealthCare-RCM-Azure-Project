@@ -217,20 +217,20 @@
 							}
 						},
 						{
-							"name": "If Condition1",
+							"name": "Check Active",
 							"type": "IfCondition",
 							"dependsOn": [
 								{
 									"activity": "Already Exists",
 									"dependencyConditions": [
-										"Succeeded"
+										"Completed"
 									]
 								}
 							],
 							"userProperties": [],
 							"typeProperties": {
 								"expression": {
-									"value": "@equals(item().is_active,1)",
+									"value": "@equals(item().is_active,'Y')",
 									"type": "Expression"
 								},
 								"ifTrueActivities": [
@@ -269,12 +269,8 @@
 													"value": "@item().datasource",
 													"type": "Expression"
 												},
-												"filePath": {
-													"value": "@variables('containerName')",
-													"type": "Expression"
-												},
 												"containerName": {
-													"value": "@item().database",
+													"value": "@variables('containerName')",
 													"type": "Expression"
 												},
 												"tableNameWithSchema": {
