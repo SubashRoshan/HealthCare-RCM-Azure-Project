@@ -5,6 +5,9 @@
 		"factoryName": {
 			"value": "healthCare-RCM-adf"
 		},
+		"ls_healthCare_adb_properties_typeProperties_existingClusterId": {
+			"value": "0206-195714-n8epyf5g"
+		},
 		"ls_healthCare_adls_properties_typeProperties_url": {
 			"value": "https://healthcarearsa.dfs.core.windows.net/"
 		},
@@ -15,7 +18,7 @@
 			"value": "healthcare-sql-server.database.windows.net"
 		},
 		"ls_healthCare_sql_db_properties_typeProperties_database": {
-			"value": "healthCare-sql-db"
+			"value": "@{linkedService().dbName}"
 		},
 		"ls_healthCare_sql_db_properties_typeProperties_userName": {
 			"value": "healthcare"

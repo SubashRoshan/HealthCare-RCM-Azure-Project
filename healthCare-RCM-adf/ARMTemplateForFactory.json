@@ -7,6 +7,10 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "healthCare-RCM-adf"
 		},
+		"ls_healthCare_adb_properties_typeProperties_existingClusterId": {
+			"type": "string",
+			"defaultValue": "0206-195714-n8epyf5g"
+		},
 		"ls_healthCare_adls_properties_typeProperties_url": {
 			"type": "string",
 			"defaultValue": "https://healthcarearsa.dfs.core.windows.net/"
@@ -21,7 +25,7 @@
 		},
 		"ls_healthCare_sql_db_properties_typeProperties_database": {
 			"type": "string",
-			"defaultValue": "healthCare-sql-db"
+			"defaultValue": "@{linkedService().dbName}"
 		},
 		"ls_healthCare_sql_db_properties_typeProperties_userName": {
 			"type": "string",
@@ -32,6 +36,1823 @@
 		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
 	},
 	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_adb_bronze')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ICD bronze",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/e.subashroshan.trencytech@outlook.com/HealthCare-RCM-Azure-Project/AzureDatabricks/API Extracts/ICD Code API Extract"
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "NPI_bronze",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "ICD bronze",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/e.subashroshan.trencytech@outlook.com/HealthCare-RCM-Azure-Project/AzureDatabricks/API Extracts/NPI API Extract"
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_adb')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_full_inc_load')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Load Type",
+						"type": "IfCondition",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@equals(pipeline().parameters.loadtype, 'Full')",
+								"type": "Expression"
+							},
+							"ifFalseActivities": [
+								{
+									"name": "Fetch Logs",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureDatabricksDeltaLakeSource",
+											"query": {
+												"value": "@concat('select coalesce(cast(max(loaddate) as date),''','1900-01-01',''') as last_fetched_date from audit.load_logs where ','data_source = ''',pipeline().parameters.datasource, ''' and tablename = ''', pipeline().parameters.tableNameWithSchema, '''')",
+												"type": "Expression"
+											}
+										},
+										"dataset": {
+											"referenceName": "ds_healthCare_delta_lake",
+											"type": "DatasetReference",
+											"parameters": {
+												"schemaName": "audit",
+												"tableName": "load_logs"
+											}
+										},
+										"firstRowOnly": true
+									}
+								},
+								{
+									"name": "Incrementa Load CP",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Fetch Logs",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableNameWithSchema, ' where ', pipeline().parameters.watermark, ' >= ''', activity('Fetch Logs').output.firstRow.last_fetched_date, '''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ds_healthCare_sql_db",
+											"type": "DatasetReference",
+											"parameters": {
+												"dbName": {
+													"value": "@pipeline().parameters.dbName",
+													"type": "Expression"
+												},
+												"schemaName": {
+													"value": "@pipeline().parameters.schemaName",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@pipeline().parameters.tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ds_healthCare_adls_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"containerName": {
+													"value": "@pipeline().parameters.containerName",
+													"type": "Expression"
+												},
+												"filePath": {
+													"value": "@pipeline().parameters.targetpath",
+													"type": "Expression"
+												},
+												"fileName": {
+													"value": "@pipeline().parameters.tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Audit Logs",
+									"type": "Lookup",
+									"dependsOn": [
+										{
+											"activity": "Incrementa Load CP",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureDatabricksDeltaLakeSource",
+											"query": {
+												"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tableNameWithSchema, ''', ''', activity('Incrementa Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
+												"type": "Expression"
+											}
+										},
+										"dataset": {
+											"referenceName": "ds_healthCare_delta_lake",
+											"type": "DatasetReference",
+											"parameters": {
+												"schemaName": "audit",
+												"tableName": "load_logs"
+											}
+										},
+										"firstRowOnly": false
+									}
+								}
+							],
+							"ifTrueActivities": [
+								{
+									"name": "Full Load CP",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select *, ''', pipeline().parameters.datasource, ''' as datasource from ', pipeline().parameters.tableNameWithSchema)",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ds_healthCare_sql_db",
+											"type": "DatasetReference",
+											"parameters": {
+												"dbName": {
+													"value": "@pipeline().parameters.dbName",
+													"type": "Expression"
+												},
+												"schemaName": {
+													"value": "@pipeline().parameters.schemaName",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@pipeline().parameters.tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ds_healthCare_adls_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"containerName": {
+													"value": "@pipeline().parameters.containerName",
+													"type": "Expression"
+												},
+												"filePath": {
+													"value": "@pipeline().parameters.targetpath",
+													"type": "Expression"
+												},
+												"fileName": {
+													"value": "@pipeline().parameters.tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Audit Log",
+									"type": "Lookup",
+									"dependsOn": [
+										{
+											"activity": "Full Load CP",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureDatabricksDeltaLakeSource",
+											"query": {
+												"value": "@concat('insert into audit.load_logs(data_source, tablename, numberofrowscopied, watermarkcolumnname, loaddate) values (''', pipeline().parameters.datasource, ''', ''', pipeline().parameters.tableNameWithSchema, ''', ''', activity('Full Load CP').output.rowscopied, ''', ''', pipeline().parameters.watermark, ''', ''', utcNow(), ''')')",
+												"type": "Expression"
+											}
+										},
+										"dataset": {
+											"referenceName": "ds_healthCare_delta_lake",
+											"type": "DatasetReference",
+											"parameters": {
+												"schemaName": "audit",
+												"tableName": "load_logs"
+											}
+										},
+										"firstRowOnly": false
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"dbName": {
+						"type": "string"
+					},
+					"loadtype": {
+						"type": "string"
+					},
+					"schemaName": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					},
+					"datasource": {
+						"type": "string"
+					},
+					"containerName": {
+						"type": "string"
+					},
+					"tableNameWithSchema": {
+						"type": "string"
+					},
+					"watermark": {
+						"type": "string"
+					},
+					"targetpath": {
+						"type": "string"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_healthCare_delta_lake')]",
+				"[concat(variables('factoryId'), '/datasets/ds_healthCare_sql_db')]",
+				"[concat(variables('factoryId'), '/datasets/ds_healthCare_adls_parquet')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_healthcare_ar')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Landing To Bronze",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_landing_bronze",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "Bronze To Gold",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Landing To Bronze",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_silver_gold",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_landing_bronze')]",
+				"[concat(variables('factoryId'), '/pipelines/pl_silver_gold')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_landing_bronze')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "SQL DB to Bronze",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_sql_db_bronze",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "API Extract to Bronzr",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "SQL DB to Bronze",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_adb_bronze",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_sql_db_bronze')]",
+				"[concat(variables('factoryId'), '/pipelines/pl_adb_bronze')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_load_sql_db')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Create Tables If Not Exists",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[CreateSchemaAndTable]"
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_sql_db",
+							"type": "LinkedServiceReference",
+							"parameters": {
+								"dbName": {
+									"value": "@pipeline().parameters.dbName",
+									"type": "Expression"
+								},
+								"schemaName": {
+									"value": "@pipeline().parameters.dummySchemaName",
+									"type": "Expression"
+								},
+								"tableName": {
+									"value": "@pipeline().parameters.dummyTableName",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "configs file",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Create Tables If Not Exists",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"dataset": {
+								"referenceName": "ds_healthCare_adls_delimited",
+								"type": "DatasetReference",
+								"parameters": {
+									"containerName": {
+										"value": "@pipeline().parameters.lookupContainerName",
+										"type": "Expression"
+									},
+									"filePath": {
+										"value": "@pipeline().parameters.lookupFilePath",
+										"type": "Expression"
+									},
+									"fileName": {
+										"value": "@pipeline().parameters.lookupFileName",
+										"type": "Expression"
+									}
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "configs file",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('configs file').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Adls to Sql db",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "AzureSqlSink",
+											"writeBehavior": "insert",
+											"sqlWriterUseTableLock": false,
+											"disableMetricsCollection": false
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ds_healthCare_adls_delimited",
+											"type": "DatasetReference",
+											"parameters": {
+												"containerName": {
+													"value": "@pipeline().parameters.lookupContainerName",
+													"type": "Expression"
+												},
+												"filePath": {
+													"value": "@toLower(replace(item().database, '_', '-'))",
+													"type": "Expression"
+												},
+												"fileName": {
+													"value": "@concat(split(item().tableName, '.')[1], '.csv')",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ds_healthCare_sql_db",
+											"type": "DatasetReference",
+											"parameters": {
+												"dbName": {
+													"value": "@pipeline().parameters.dbName",
+													"type": "Expression"
+												},
+												"schemaName": {
+													"value": "@item().database",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@split(item().tableName, '.')[1]",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"dbName": {
+						"type": "string",
+						"defaultValue": "healthCare-sql-db"
+					},
+					"dummySchemaName": {
+						"type": "string",
+						"defaultValue": "healthCare-hospital-a"
+					},
+					"dummyTableName": {
+						"type": "string",
+						"defaultValue": "patients"
+					},
+					"lookupContainerName": {
+						"type": "string",
+						"defaultValue": "sqldbraw"
+					},
+					"lookupFilePath": {
+						"type": "string",
+						"defaultValue": "configs"
+					},
+					"lookupFileName": {
+						"type": "string",
+						"defaultValue": "load_configs.csv"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_sql_db')]",
+				"[concat(variables('factoryId'), '/datasets/ds_healthCare_adls_delimited')]",
+				"[concat(variables('factoryId'), '/datasets/ds_healthCare_sql_db')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_silver_gold')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "claims_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "transactions_gold",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/claims.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "cpt_codes_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/CPT Codes.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "cpt_codes_gold",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "cpt_codes_silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_cpt_code.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "departments_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "cpt_codes_gold",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/departments_full.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "departments_gold",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "departments_silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_department.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "encounters_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "claims_silver",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/encounters.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "icd_code_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "departments_gold",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/ICD Code.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "icd_code_gold",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "icd_code_silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_icd_code.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "NPI_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "icd_code_gold",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/NPI.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "NPI_gold",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "NPI_silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_npi.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "patients_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "NPI_gold",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/patients.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "patients_gold",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "patients_silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_patient.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "providers_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "patients_gold",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/providers_full.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "providers_gold",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "providers_silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/dim_provider.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "transactions_silver",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "providers_gold",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Bronze To Silver/transactions.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "transactions_gold",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "transactions_silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().parameters.basePath, 'Silver To Gold/fact_transaction.py')",
+								"type": "Expression"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_healthCare_adb",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"basePath": {
+						"type": "string",
+						"defaultValue": "/Users/e.subashroshan.trencytech@outlook.com/HealthCare-RCM-Azure-Project/AzureDatabricks/"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_adb')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_sql_db_bronze')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Configs file",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"dataset": {
+								"referenceName": "ds_healthCare_adls_delimited",
+								"type": "DatasetReference",
+								"parameters": {
+									"containerName": {
+										"value": "@pipeline().parameters.loopkupContainerName",
+										"type": "Expression"
+									},
+									"filePath": {
+										"value": "@pipeline().parameters.loopkupFilePath",
+										"type": "Expression"
+									},
+									"fileName": {
+										"value": "@pipeline().parameters.loopkupFileName",
+										"type": "Expression"
+									}
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Configs file",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Configs file').output.value",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"batchCount": 4,
+							"activities": [
+								{
+									"name": "File Exists",
+									"type": "GetMetadata",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "ds_healthCare_adls_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"containerName": {
+													"value": "@variables('containerName')",
+													"type": "Expression"
+												},
+												"filePath": {
+													"value": "@item().targetpath",
+													"type": "Expression"
+												},
+												"fileName": {
+													"value": "@split(item().tablename, '.')[1]",
+													"type": "Expression"
+												}
+											}
+										},
+										"fieldList": [
+											"exists"
+										],
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "ParquetReadSettings"
+										}
+									}
+								},
+								{
+									"name": "Already Exists",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "File Exists",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@activity('File Exists').output.exists",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Archive File",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "ParquetSource",
+														"storeSettings": {
+															"type": "AzureBlobFSReadSettings",
+															"recursive": true,
+															"enablePartitionDiscovery": false
+														},
+														"formatSettings": {
+															"type": "ParquetReadSettings"
+														}
+													},
+													"sink": {
+														"type": "ParquetSink",
+														"storeSettings": {
+															"type": "AzureBlobFSWriteSettings"
+														},
+														"formatSettings": {
+															"type": "ParquetWriteSettings"
+														}
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "ds_healthCare_adls_parquet",
+														"type": "DatasetReference",
+														"parameters": {
+															"containerName": {
+																"value": "@variables('containerName')",
+																"type": "Expression"
+															},
+															"filePath": {
+																"value": "@item().targetpath",
+																"type": "Expression"
+															},
+															"fileName": {
+																"value": "@split(item().tablename, '.')[1]",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "ds_healthCare_adls_parquet",
+														"type": "DatasetReference",
+														"parameters": {
+															"containerName": {
+																"value": "@variables('containerName')",
+																"type": "Expression"
+															},
+															"filePath": {
+																"value": "@concat(item().targetpath, '/archive/', formatDateTime(utcNow(), 'yyyy'), '/', formatDateTime(utcNow(), '%M'), '/', formatDateTime(utcNow(), '%d'))",
+																"type": "Expression"
+															},
+															"fileName": {
+																"value": "@split(item().tablename, '.')[1]",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								},
+								{
+									"name": "Check Active",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Already Exists",
+											"dependencyConditions": [
+												"Completed"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@equals(item().is_active,'Y')",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Execute Load Pipeline",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"policy": {
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "pl_full_inc_load",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"dbName": {
+															"value": "@pipeline().parameters.dbName",
+															"type": "Expression"
+														},
+														"loadtype": {
+															"value": "@item().loadtype",
+															"type": "Expression"
+														},
+														"schemaName": {
+															"value": "@split(item().tablename, '.')[0]",
+															"type": "Expression"
+														},
+														"tableName": {
+															"value": "@split(item().tablename, '.')[1]",
+															"type": "Expression"
+														},
+														"datasource": {
+															"value": "@item().datasource",
+															"type": "Expression"
+														},
+														"containerName": {
+															"value": "@variables('containerName')",
+															"type": "Expression"
+														},
+														"tableNameWithSchema": {
+															"value": "@item().tablename",
+															"type": "Expression"
+														},
+														"watermark": {
+															"value": "@item().watermark",
+															"type": "Expression"
+														},
+														"targetpath": {
+															"value": "@item().targetpath",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"loopkupContainerName": {
+						"type": "string",
+						"defaultValue": "sqldbraw"
+					},
+					"loopkupFileName": {
+						"type": "string",
+						"defaultValue": "load_configs.csv"
+					},
+					"loopkupFilePath": {
+						"type": "string",
+						"defaultValue": "configs"
+					},
+					"dbName": {
+						"type": "string",
+						"defaultValue": "healthCare-sql-db"
+					}
+				},
+				"variables": {
+					"containerName": {
+						"type": "String",
+						"defaultValue": "bronze"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_healthCare_adls_delimited')]",
+				"[concat(variables('factoryId'), '/datasets/ds_healthCare_adls_parquet')]",
+				"[concat(variables('factoryId'), '/pipelines/pl_full_inc_load')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_healthCare_adls_delimited')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_healthCare_adls",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"containerName": {
+							"value": "@dataset().containerName",
+							"type": "Expression"
+						},
+						"filePath": {
+							"value": "@dataset().filePath",
+							"type": "Expression"
+						},
+						"fileName": {
+							"value": "@dataset().fileName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"containerName": {
+						"type": "string"
+					},
+					"filePath": {
+						"type": "string"
+					},
+					"fileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().fileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().filePath",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().containerName",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_adls')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_healthCare_adls_parquet')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_healthCare_adls",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"containerName": {
+							"value": "@dataset().containerName",
+							"type": "Expression"
+						},
+						"filePath": {
+							"value": "@dataset().filePath",
+							"type": "Expression"
+						},
+						"fileName": {
+							"value": "@dataset().fileName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"containerName": {
+						"type": "string"
+					},
+					"filePath": {
+						"type": "string"
+					},
+					"fileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().fileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().filePath",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().containerName",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_adls')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_healthCare_delta_lake')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_healthCare_delta_lake",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"schemaName": {
+							"value": "@dataset().schemaName",
+							"type": "Expression"
+						},
+						"tableName": {
+							"value": "@dataset().tableName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"schemaName": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureDatabricksDeltaLakeDataset",
+				"typeProperties": {},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_delta_lake')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_healthCare_sql_db')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_healthCare_sql_db",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"dbName": {
+							"value": "@dataset().dbName",
+							"type": "Expression"
+						},
+						"schemaName": {
+							"value": "@dataset().schemaName",
+							"type": "Expression"
+						},
+						"tableName": {
+							"value": "@dataset().tableName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"dbName": {
+						"type": "string"
+					},
+					"schemaName": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().tableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_sql_db')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_healthCare_adb')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "https://adb-3564273626301826.6.azuredatabricks.net",
+					"accessToken": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "ls_healthCare_kv",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "adb-token"
+					},
+					"existingClusterId": "[parameters('ls_healthCare_adb_properties_typeProperties_existingClusterId')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_kv')]"
+			]
+		},
 		{
 			"name": "[concat(parameters('factoryName'), '/ls_healthCare_adls')]",
 			"type": "Microsoft.DataFactory/factories/linkedServices",
@@ -59,6 +1880,38 @@
 							"type": "LinkedServiceReference"
 						},
 						"secretName": "storage-account-key"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_kv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_healthCare_delta_lake')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"parameters": {
+					"schemaName": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureDatabricksDeltaLake",
+				"typeProperties": {
+					"domain": "https://adb-3564273626301826.6.azuredatabricks.net",
+					"clusterId": "0206-195714-n8epyf5g",
+					"accessToken": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "ls_healthCare_kv",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "adb-token"
 					}
 				}
 			},
@@ -116,6 +1969,37 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/linkedServices/ls_healthCare_kv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ar_trigger')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "pl_healthcare_ar",
+							"type": "PipelineReference"
+						},
+						"parameters": {}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Day",
+						"interval": 1,
+						"startTime": "2025-02-07T18:50:00",
+						"endTime": "2025-02-08T13:02:00",
+						"timeZone": "India Standard Time"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_healthcare_ar')]"
 			]
 		}
 	]
