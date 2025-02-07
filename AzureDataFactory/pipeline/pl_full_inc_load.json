@@ -118,15 +118,15 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"containerName": {
-											"value": "@variables('containerName')",
+											"value": "@pipeline().parameters.containerName",
 											"type": "Expression"
 										},
 										"filePath": {
-											"value": "@item().targetpath",
+											"value": "@pipeline().parameters.targetpath",
 											"type": "Expression"
 										},
 										"fileName": {
-											"value": "@split(item().tablename, '.')[1]",
+											"value": "@pipeline().parameters.tableName",
 											"type": "Expression"
 										}
 									}
@@ -319,10 +319,13 @@
 			"containerName": {
 				"type": "string"
 			},
-			"tablename": {
+			"tableNameWithSchema": {
 				"type": "string"
 			},
 			"watermark": {
+				"type": "string"
+			},
+			"targetpath": {
 				"type": "string"
 			}
 		},

@@ -102,7 +102,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Lookup config').output.value",
+						"value": "@activity('configs file').output.value",
 						"type": "Expression"
 					},
 					"isSequential": true,
