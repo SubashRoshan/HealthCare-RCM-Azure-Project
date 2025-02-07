@@ -1,0 +1,215 @@
+CREATE PROCEDURE dbo.CreateSchemaAndTable
+AS
+BEGIN
+    IF NOT EXISTS ( SELECT * FROM sys.schemas WHERE name = 'healthCare_hospital_a' )
+        EXEC('CREATE SCHEMA healthCare_hospital_a');
+
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_a' AND TABLE_NAME = 'departments')
+    BEGIN
+        CREATE TABLE healthCare_hospital_a.departments  (
+            DeptID nvarchar(50) NOT NULL,
+			Name nvarchar(50) NOT NULL,
+			CONSTRAINT PK_departments PRIMARY KEY (DeptID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_a.departments;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_a' AND TABLE_NAME = 'encounters')
+    BEGIN
+        CREATE TABLE healthCare_hospital_a.encounters  (
+            EncounterID nvarchar(50) NOT NULL,
+			PatientID nvarchar(50) NOT NULL,
+			EncounterDate date NOT NULL,
+			EncounterType nvarchar(50) NOT NULL,
+			ProviderID nvarchar(50) NOT NULL,
+			DepartmentID nvarchar(50) NOT NULL,
+			ProcedureCode int NOT NULL,
+			InsertedDate date NOT NULL,
+			ModifiedDate date NOT NULL,
+			CONSTRAINT PK_encounters PRIMARY KEY (EncounterID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_a.encounters;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_a' AND TABLE_NAME = 'patients')
+    BEGIN
+        CREATE TABLE healthCare_hospital_a.patients  (
+            PatientID nvarchar(50) NOT NULL,
+			FirstName nvarchar(50) NOT NULL,
+			LastName nvarchar(50) NOT NULL,
+			MiddleName nvarchar(50) NOT NULL,
+			SSN nvarchar(50) NOT NULL,
+			PhoneNumber nvarchar(50) NOT NULL,
+			Gender nvarchar(50) NOT NULL,
+			DOB date NOT NULL,
+			Address nvarchar(100) NOT NULL,
+			ModifiedDate date NOT NULL,
+			CONSTRAINT PK_hospital1_patient_data PRIMARY KEY (PatientID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_a.patients;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_a' AND TABLE_NAME = 'providers')
+    BEGIN
+        CREATE TABLE healthCare_hospital_a.providers  (
+            ProviderID nvarchar(50) NOT NULL,
+			FirstName nvarchar(50) NOT NULL,
+			LastName nvarchar(50) NOT NULL,
+			Specialization nvarchar(50) NOT NULL,
+			DeptID nvarchar(50) NOT NULL,
+			NPI bigint NOT NULL,
+			CONSTRAINT PK_providers PRIMARY KEY (ProviderID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_a.providers;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_a' AND TABLE_NAME = 'transactions')
+    BEGIN
+        CREATE TABLE healthCare_hospital_a.transactions  (
+            TransactionID nvarchar(50) NOT NULL,
+			EncounterID nvarchar(50) NOT NULL,
+			PatientID nvarchar(50) NOT NULL,
+			ProviderID nvarchar(50) NOT NULL,
+			DeptID nvarchar(50) NOT NULL,
+			VisitDate date NOT NULL,
+			ServiceDate date NOT NULL,
+			PaidDate date NOT NULL,
+			VisitType nvarchar(50) NOT NULL,
+			Amount float NOT NULL,
+			AmountType nvarchar(50) NOT NULL,
+			PaidAmount float NOT NULL,
+			ClaimID nvarchar(50) NOT NULL,
+			PayorID nvarchar(50) NOT NULL,
+			ProcedureCode int NOT NULL,
+			ICDCode nvarchar(50) NOT NULL,
+			LineOfBusiness nvarchar(50) NOT NULL,
+			MedicaidID nvarchar(50) NOT NULL,
+			MedicareID nvarchar(50) NOT NULL,
+			InsertDate date NOT NULL,
+			ModifiedDate date NOT NULL,
+			CONSTRAINT PK_transactions PRIMARY KEY (TransactionID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_a.transactions;
+	END
+	
+	IF NOT EXISTS ( SELECT * FROM sys.schemas WHERE name = 'healthCare_hospital_b' )
+        EXEC('CREATE SCHEMA healthCare_hospital_b');
+
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_b' AND TABLE_NAME = 'departments')
+    BEGIN
+        CREATE TABLE healthCare_hospital_b.departments  (
+			DeptID nvarchar(50) NOT NULL,
+			Name nvarchar(50) NOT NULL,
+			CONSTRAINT PK_departments PRIMARY KEY (DeptID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_b.departments;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_b' AND TABLE_NAME = 'encounters')
+    BEGIN
+        CREATE TABLE healthCare_hospital_b.encounters  (
+			EncounterID nvarchar(50) NOT NULL,
+			PatientID nvarchar(50) NOT NULL,
+			EncounterDate date NOT NULL,
+			EncounterType nvarchar(50) NOT NULL,
+			ProviderID nvarchar(50) NOT NULL,
+			DepartmentID nvarchar(50) NOT NULL,
+			ProcedureCode int NOT NULL,
+			InsertedDate date NOT NULL,
+			ModifiedDate date NOT NULL,
+			CONSTRAINT PK_encounters PRIMARY KEY (EncounterID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_b.encounters;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_b' AND TABLE_NAME = 'patients')
+    BEGIN
+        CREATE TABLE healthCare_hospital_b.patients  (
+			ID nvarchar(50) NOT NULL,
+			F_Name nvarchar(50) NOT NULL,
+			L_Name nvarchar(50) NOT NULL,
+			M_Name nvarchar(50) NOT NULL,
+			SSN nvarchar(50) NOT NULL,
+			PhoneNumber nvarchar(50) NOT NULL,
+			Gender nvarchar(50) NOT NULL,
+			DOB date NOT NULL,
+			Address nvarchar(100) NOT NULL,
+			Updated_Date date NOT NULL,
+			CONSTRAINT PK_patients PRIMARY KEY (ID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_b.patients;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_b' AND TABLE_NAME = 'providers')
+    BEGIN
+        CREATE TABLE healthCare_hospital_b.providers  (
+			ProviderID nvarchar(50) NOT NULL,
+			FirstName nvarchar(50) NOT NULL,
+			LastName nvarchar(50) NOT NULL,
+			Specialization nvarchar(50) NOT NULL,
+			DeptID nvarchar(50) NOT NULL,
+			NPI bigint NOT NULL,
+			CONSTRAINT PK_providers PRIMARY KEY (ProviderID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_b.providers;
+	END
+	
+	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'healthCare_hospital_b' AND TABLE_NAME = 'transactions')
+    BEGIN
+        CREATE TABLE healthCare_hospital_b.transactions  (
+			TransactionID nvarchar(50) NOT NULL,
+			EncounterID nvarchar(50) NOT NULL,
+			PatientID nvarchar(50) NOT NULL,
+			ProviderID nvarchar(50) NOT NULL,
+			DeptID nvarchar(50) NOT NULL,
+			VisitDate date NOT NULL,
+			ServiceDate date NOT NULL,
+			PaidDate date NOT NULL,
+			VisitType nvarchar(50) NOT NULL,
+			Amount float NOT NULL,
+			AmountType nvarchar(50) NOT NULL,
+			PaidAmount float NOT NULL,
+			ClaimID nvarchar(50) NOT NULL,
+			PayorID nvarchar(50) NOT NULL,
+			ProcedureCode int NOT NULL,
+			ICDCode nvarchar(50) NOT NULL,
+			LineOfBusiness nvarchar(50) NOT NULL,
+			MedicaidID nvarchar(50) NOT NULL,
+			MedicareID nvarchar(50) NOT NULL,
+			InsertDate date NOT NULL,
+			ModifiedDate date NOT NULL,
+			CONSTRAINT PK_transactions PRIMARY KEY (TransactionID)
+        );
+    END
+	ELSE
+	BEGIN
+		TRUNCATE TABLE healthCare_hospital_b.transactions;
+	END
+END;
