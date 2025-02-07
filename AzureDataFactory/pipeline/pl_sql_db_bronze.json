@@ -64,8 +64,7 @@
 						"value": "@activity('Configs file').output.value",
 						"type": "Expression"
 					},
-					"isSequential": false,
-					"batchCount": 4,
+					"isSequential": true,
 					"activities": [
 						{
 							"name": "File Exists",
@@ -217,7 +216,7 @@
 							}
 						},
 						{
-							"name": "If Condition1",
+							"name": "Check Active",
 							"type": "IfCondition",
 							"dependsOn": [
 								{
